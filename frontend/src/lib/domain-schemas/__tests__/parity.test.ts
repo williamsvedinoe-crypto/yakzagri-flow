@@ -10,11 +10,11 @@
  * disagree about what a valid trade is.
  */
 import fc from "fast-check";
+import { StrKey } from "@stellar/stellar-sdk";
 import {
   createTradeInputSchema,
   DEFAULT_LOSS_BPS,
   LOSS_BPS_SUM,
-  STELLAR_PUBLIC_KEY_REGEX,
   USDC_AMOUNT_REGEX,
 } from "../trade";
 
@@ -23,13 +23,19 @@ function referenceAccepts(input: Record<string, unknown>): boolean {
   const { buyerAddress, sellerAddress, amountUsdc, buyerLossBps, sellerLossBps, description } =
     input;
 
-  if (typeof sellerAddress !== "string" || !STELLAR_PUBLIC_KEY_REGEX.test(sellerAddress)) {
+  const isValidAddress = (address: unknown): boolean => {
+    if (typeof address !== "string") return false;
+    const trimmed = address.trim();
+    if (!trimmed) return false;
+    if (trimmed.startsWith("G")) return StrKey.isValidEd25519PublicKey(trimmed);
+    if (trimmed.startsWith("C")) return StrKey.isValidContract(trimmed);
+    return false;
+  };
+
+  if (typeof sellerAddress !== "string" || !isValidAddress(sellerAddress)) {
     return false;
   }
-  if (
-    buyerAddress !== undefined &&
-    (typeof buyerAddress !== "string" || !STELLAR_PUBLIC_KEY_REGEX.test(buyerAddress))
-  ) {
+  if (buyerAddress !== undefined && !isValidAddress(buyerAddress)) {
     return false;
   }
 
@@ -54,9 +60,10 @@ function referenceAccepts(input: Record<string, unknown>): boolean {
   return true;
 }
 
-const validKey = fc
-  .stringMatching(/^[A-Z2-7]{55}$/)
-  .map((s) => `G${s}`);
+const validKey = fc.oneof(
+  fc.uint8Array({ minLength: 32, maxLength: 32 }).map((bytes) => StrKey.encodeEd25519PublicKey(bytes)),
+  fc.uint8Array({ minLength: 32, maxLength: 32 }).map((bytes) => StrKey.encodeContract(bytes)),
+);
 
 const maybeKey = fc.oneof(
   validKey,
@@ -102,9 +109,10 @@ describe("shared trade schema — client/server acceptance parity", () => {
   });
 
   it("accepts a canonical valid trade", () => {
+    const sellerAddress = StrKey.encodeEd25519PublicKey(Uint8Array.from({ length: 32 }, (_, index) => index + 1));
     expect(
       createTradeInputSchema.safeParse({
-        sellerAddress: "G" + "A".repeat(55),
+        sellerAddress,
         amountUsdc: "1000.50",
         buyerLossBps: 4000,
         sellerLossBps: 6000,
@@ -113,9 +121,10 @@ describe("shared trade schema — client/server acceptance parity", () => {
   });
 
   it("rejects a loss split that does not sum to 10000", () => {
+    const sellerAddress = StrKey.encodeEd25519PublicKey(Uint8Array.from({ length: 32 }, (_, index) => index + 1));
     expect(
       createTradeInputSchema.safeParse({
-        sellerAddress: "G" + "A".repeat(55),
+        sellerAddress,
         amountUsdc: "1000",
         buyerLossBps: 4000,
         sellerLossBps: 5000,

@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { StrKey } from "@stellar/stellar-sdk";
 
+const isValidStellarAddress = (value: string): boolean => {
+  const address = value.trim();
+  if (!address) return false;
+  if (address.startsWith("G")) return StrKey.isValidEd25519PublicKey(address);
+  if (address.startsWith("C")) return StrKey.isValidContract(address);
+  return false;
+};
+
 export const step1Schema = z.object({
   commodity: z.string().min(1, "Select a commodity"),
   quantity: z.string().refine(
@@ -20,8 +28,8 @@ export const step1Schema = z.object({
   ),
   currency: z.string().min(1),
   sellerAddress: z.string().refine(
-    (val) => val !== "" && StrKey.isValidEd25519PublicKey(val.trim()),
-    { message: "Invalid Stellar public key" }
+    (val) => isValidStellarAddress(val),
+    { message: "Invalid Stellar address" }
   ),
 });
 

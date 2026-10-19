@@ -2,9 +2,9 @@
 import { t as translateCopy } from "@/lib/i18n";
 
 import { useState } from "react";
-import { StrKey } from "@stellar/stellar-sdk";
 import { useTrade } from "../TradeContext";
 import { validateStep1 } from "../validation";
+import { StrKey } from "@stellar/stellar-sdk";
 import { formatCurrencyAmount, getCurrencyInfo } from "@/lib/currency";
 
 const COMMODITIES = ["Maize", "Rice", "Sorghum", "Millet", "Cassava", "Yam", "Groundnut", "Soybean"];
@@ -30,7 +30,8 @@ export default function Step1Details() {
   const isPriceValid = data.pricePerUnit !== "" && !isNaN(price) && price > 0;
   const isAddressValid =
     data.sellerAddress !== "" &&
-    StrKey.isValidEd25519PublicKey(data.sellerAddress.trim());
+    ((data.sellerAddress.trim().startsWith("G") && StrKey.isValidEd25519PublicKey(data.sellerAddress.trim())) ||
+      (data.sellerAddress.trim().startsWith("C") && StrKey.isValidContract(data.sellerAddress.trim())));
 
   const valid =
     data.commodity !== "" && isQtyValid && isPriceValid && isAddressValid;

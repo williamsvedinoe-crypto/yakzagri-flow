@@ -1,3 +1,4 @@
+import { StrKey } from "@stellar/stellar-sdk";
 import {
   TradeSchema,
   WalletSchema,
@@ -9,10 +10,12 @@ import {
 // ── TradeSchema ───────────────────────────────────────────────────────────────
 
 describe("TradeSchema", () => {
+  const validPublicKey = StrKey.encodeEd25519PublicKey(Uint8Array.from({ length: 32 }, (_, index) => index + 1));
+  const validContract = StrKey.encodeContract(Uint8Array.from({ length: 32 }, (_, index) => index + 9));
   const valid = {
     tradeId: "trade-001",
-    buyerAddress: "GABCDEF1234567890",
-    sellerAddress: "GXYZABC9876543210",
+    buyerAddress: validPublicKey,
+    sellerAddress: validPublicKey,
     amountCngn: "1000.50",
     buyerLossBps: 200,
     sellerLossBps: 300,
@@ -23,6 +26,39 @@ describe("TradeSchema", () => {
 
   it("accepts valid trade data", () => {
     expect(() => TradeSchema.parse(valid)).not.toThrow();
+    expect(StrKey.isValidEd25519PublicKey(validPublicKey)).toBe(true);
+    expect(StrKey.isValidContract(validContract)).toBe(true);
+  });
+
+  it("rejects invalid checksum Stellar public keys", () => {
+    const invalidPublicKey = validPublicKey.slice(0, -1) + "A";
+    const result = TradeSchema.safeParse({
+      ...valid,
+      buyerAddress: invalidPublicKey,
+      sellerAddress: validPublicKey,
+    });
+    expect(result.success).toBe(false);
+    expect(StrKey.isValidEd25519PublicKey(invalidPublicKey)).toBe(false);
+  });
+
+  it("rejects invalid checksum contract addresses", () => {
+    const invalidContract = validContract.slice(0, -1) + "A";
+    const result = TradeSchema.safeParse({
+      ...valid,
+      buyerAddress: validPublicKey,
+      sellerAddress: invalidContract,
+    });
+    expect(result.success).toBe(false);
+    expect(StrKey.isValidContract(invalidContract)).toBe(false);
+  });
+
+  it("rejects invalid-length Stellar addresses", () => {
+    const result = TradeSchema.safeParse({
+      ...valid,
+      buyerAddress: "G" + "A".repeat(10),
+      sellerAddress: validPublicKey,
+    });
+    expect(result.success).toBe(false);
   });
 
   it("accepts integer amounts", () => {

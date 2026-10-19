@@ -9,8 +9,17 @@
  * this copy and must not import the backend package directly.
  */
 import { z } from "zod";
+import { StrKey } from "@stellar/stellar-sdk";
 
-export const STELLAR_PUBLIC_KEY_REGEX = /^G[A-Z2-7]{55}$/;
+export const STELLAR_PUBLIC_KEY_REGEX = /^(G|C)[A-Z2-7]{55}$/;
+
+export function isValidStellarAddress(value: string): boolean {
+  const address = value.trim();
+  if (!address) return false;
+  if (address.startsWith("G")) return StrKey.isValidEd25519PublicKey(address);
+  if (address.startsWith("C")) return StrKey.isValidContract(address);
+  return false;
+}
 export const USDC_AMOUNT_REGEX = /^\d+(\.\d{1,7})?$/;
 export const LOSS_BPS_MIN = 0;
 export const LOSS_BPS_MAX = 10_000;
@@ -19,7 +28,8 @@ export const DEFAULT_LOSS_BPS = 5_000;
 
 export const stellarPublicKey = z
   .string()
-  .regex(STELLAR_PUBLIC_KEY_REGEX, "Invalid Stellar public key");
+  .trim()
+  .refine((value) => isValidStellarAddress(value), "Invalid Stellar address");
 
 export const lossBps = z
   .number()

@@ -54,7 +54,8 @@ export function Step3Review() {
 
   const isAddressValid =
     data.sellerAddress !== "" &&
-    StrKey.isValidEd25519PublicKey(data.sellerAddress.trim());
+    ((data.sellerAddress.trim().startsWith("G") && StrKey.isValidEd25519PublicKey(data.sellerAddress.trim())) ||
+      (data.sellerAddress.trim().startsWith("C") && StrKey.isValidContract(data.sellerAddress.trim())));
   const isFormValid =
     data.commodity !== "" &&
     !isNaN(qty) && qty > 0 &&
